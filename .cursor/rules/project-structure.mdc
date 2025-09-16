@@ -1,0 +1,68 @@
+---
+alwaysApply: true
+description: S&OP 보고서 자동화 프로젝트 구조 가이드
+---
+
+# S&OP 보고서 자동화 프로젝트 구조 가이드
+
+## 프로젝트 아키텍처
+
+이 프로젝트는 S&OP 보고서 자동화를 위한 Next.js 기반 웹 애플리케이션입니다.
+
+### 핵심 디렉토리 구조
+
+```
+sop/
+├── .cursor/rules/           # Cursor AI 개발 가이드
+├── app/                     # Next.js App Router
+│   ├── (dashboard)/         # 대시보드 페이지
+│   ├── api/                 # API 라우트
+│   │   ├── upload/          # 파일 업로드 API
+│   │   ├── process/         # 데이터 처리 API
+│   │   └── export/          # 보고서 생성 API
+│   └── globals.css          # 전역 스타일
+├── components/              # 재사용 가능한 컴포넌트
+│   ├── ui/                  # shadcn/ui 컴포넌트
+│   ├── forms/               # 폼 컴포넌트
+│   ├── charts/              # 차트 컴포넌트
+│   └── layout/              # 레이아웃 컴포넌트
+├── lib/                     # 유틸리티 및 로직
+│   ├── excel/               # Excel 처리 로직
+│   ├── validation/          # 데이터 검증 로직
+│   ├── calculations/        # KPI 계산 로직
+│   ├── openai/              # ChatGPT API 연동
+│   └── utils.ts             # 공통 유틸리티
+├── templates/               # Excel 템플릿
+│   └── SOP_Report_template.xlsx
+├── output/                  # 생성된 보고서 저장소
+├── config/                  # 설정 파일
+│   ├── mdc.yaml            # MDC 파라미터 설정
+│   └── schemas/            # 데이터 스키마 정의
+├── types/                   # TypeScript 타입 정의
+├── hooks/                   # React 커스텀 훅
+├── store/                   # 상태 관리 (Zustand)
+└── public/                  # 정적 파일
+```
+
+## 핵심 파일 참조
+
+- **PRD 문서**: [prd_v1.md](mdc:prd_v1.md)
+- **Excel 템플릿**: [templates/SOP_Report_template.xlsx](mdc:templates/SOP_Report_template.xlsx)
+- **환경 설정**: [.env.local](mdc:.env.local)
+- **패키지 설정**: [package.json](mdc:package.json)
+
+## 아키텍처 원칙
+
+1. **템플릿 기반 출력**: Excel 템플릿을 엄격히 준수하여 보고서 생성
+2. **데이터 검증 우선**: RAW 데이터 업로드 시 즉시 검증 및 정규화
+3. **모듈화된 구조**: 각 기능별로 독립적인 모듈 구성
+4. **타입 안전성**: TypeScript를 활용한 타입 안전성 보장
+5. **환경 변수 기반**: 하드코딩 금지, 모든 설정은 환경변수로 관리
+
+## 개발 가이드라인
+
+- 모든 새로운 기능은 해당하는 디렉토리에 모듈화하여 구현
+- API 라우트는 RESTful 원칙을 따름
+- 컴포넌트는 재사용 가능하도록 설계
+- 타입 정의는 types/ 디렉토리에 중앙화
+- 설정은 config/ 디렉토리에서 관리

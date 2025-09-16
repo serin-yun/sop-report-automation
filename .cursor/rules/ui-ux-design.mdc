@@ -1,0 +1,355 @@
+---
+globs: *.tsx,*.ts,*.css
+description: UI/UX 디자인 가이드 - 모던하고 사용자 친화적인 인터페이스
+---
+
+# UI/UX 디자인 가이드
+
+## 디자인 원칙
+
+**모던하고 사용자 친화적인 UI**: Tailwind CSS와 shadcn/ui를 활용한 현대적이고 직관적인 사용자 경험
+
+## 디자인 시스템
+
+### 1. 색상 팔레트
+```css
+:root {
+  /* Primary Colors */
+  --primary: 222.2 84% 4.9%;
+  --primary-foreground: 210 40% 98%;
+  
+  /* Secondary Colors */
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222.2 84% 4.9%;
+  
+  /* Accent Colors */
+  --accent: 210 40% 96%;
+  --accent-foreground: 222.2 84% 4.9%;
+  
+  /* Status Colors */
+  --success: 142 76% 36%;
+  --warning: 38 92% 50%;
+  --error: 0 84% 60%;
+  --info: 199 89% 48%;
+  
+  /* Neutral Colors */
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 222.2 84% 4.9%;
+}
+```
+
+### 2. 타이포그래피
+```css
+/* 폰트 크기 */
+.text-xs { font-size: 0.75rem; line-height: 1rem; }
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.text-base { font-size: 1rem; line-height: 1.5rem; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+.text-2xl { font-size: 1.5rem; line-height: 2rem; }
+.text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+
+/* 폰트 가중치 */
+.font-light { font-weight: 300; }
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+```
+
+### 3. 간격 시스템
+```css
+/* 패딩 */
+.p-1 { padding: 0.25rem; }
+.p-2 { padding: 0.5rem; }
+.p-3 { padding: 0.75rem; }
+.p-4 { padding: 1rem; }
+.p-6 { padding: 1.5rem; }
+.p-8 { padding: 2rem; }
+
+/* 마진 */
+.m-1 { margin: 0.25rem; }
+.m-2 { margin: 0.5rem; }
+.m-3 { margin: 0.75rem; }
+.m-4 { margin: 1rem; }
+.m-6 { margin: 1.5rem; }
+.m-8 { margin: 2rem; }
+```
+
+## 컴포넌트 디자인
+
+### 1. 파일 업로드 컴포넌트
+```tsx
+import { Upload, FileText, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+
+const FileUpload = () => {
+  return (
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardContent className="p-6">
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
+          <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            파일을 드래그하여 업로드
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">
+            CSV 또는 Excel 파일을 업로드하세요 (최대 10MB)
+          </p>
+          <Button className="bg-primary hover:bg-primary/90">
+            파일 선택
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+```
+
+### 2. 데이터 검증 결과 컴포넌트
+```tsx
+import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+const ValidationResults = ({ report }: { report: ValidationReport }) => {
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'PASS':
+        return <CheckCircle className="h-5 w-5 text-green-500" />;
+      case 'FAIL':
+        return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'WARNING':
+        return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        {getStatusIcon(report.status)}
+        <h3 className="text-lg font-semibold">검증 결과</h3>
+        <Badge variant={report.status === 'PASS' ? 'default' : 'destructive'}>
+          {report.status}
+        </Badge>
+      </div>
+      
+      <div className="grid grid-cols-3 gap-4">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-blue-600">{report.totalRows}</div>
+          <div className="text-sm text-gray-500">전체 행</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-green-600">{report.validRows}</div>
+          <div className="text-sm text-gray-500">유효 행</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-red-600">{report.errorRows}</div>
+          <div className="text-sm text-gray-500">오류 행</div>
+        </div>
+      </div>
+
+      {report.errors.length > 0 && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {report.errors.length}개의 오류가 발견되었습니다.
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+};
+```
+
+### 3. 진행 상태 표시 컴포넌트
+```tsx
+import { Progress } from '@/components/ui/progress';
+import { Loader2 } from 'lucide-react';
+
+const ProcessingStatus = ({ progress, status }: { progress: number; status: string }) => {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="text-sm font-medium">{status}</span>
+      </div>
+      <Progress value={progress} className="w-full" />
+      <div className="text-right text-sm text-gray-500">
+        {progress}% 완료
+      </div>
+    </div>
+  );
+};
+```
+
+## 레이아웃 디자인
+
+### 1. 메인 레이아웃
+```tsx
+import { Sidebar } from '@/components/layout/sidebar';
+import { Header } from '@/components/layout/header';
+
+const MainLayout = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <div className="flex">
+        <Sidebar />
+        <main className="flex-1 p-6">
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};
+```
+
+### 2. 대시보드 레이아웃
+```tsx
+const DashboardLayout = () => {
+  return (
+    <div className="space-y-6">
+      {/* 헤더 섹션 */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h1 className="text-2xl font-bold text-gray-900">S&OP 보고서 자동화</h1>
+        <p className="text-gray-600 mt-2">
+          신제품 개발 일정표, Fade-out 단종 관리, 신제품 리뷰를 자동 생성합니다.
+        </p>
+      </div>
+
+      {/* 메인 컨텐츠 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <FileUpload />
+        <ValidationResults />
+      </div>
+
+      {/* 액션 버튼 */}
+      <div className="flex justify-end gap-4">
+        <Button variant="outline">취소</Button>
+        <Button>보고서 생성</Button>
+      </div>
+    </div>
+  );
+};
+```
+
+## 반응형 디자인
+
+### 1. 브레이크포인트
+```css
+/* 모바일 우선 접근법 */
+.container {
+  @apply px-4 sm:px-6 lg:px-8;
+}
+
+.grid-responsive {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
+}
+
+.text-responsive {
+  @apply text-sm sm:text-base lg:text-lg;
+}
+```
+
+### 2. 모바일 최적화
+```tsx
+const MobileOptimizedCard = () => {
+  return (
+    <Card className="w-full sm:w-96 mx-auto">
+      <CardContent className="p-4 sm:p-6">
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-center sm:text-left">
+            파일 업로드
+          </h3>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button className="w-full sm:w-auto">파일 선택</Button>
+            <Button variant="outline" className="w-full sm:w-auto">
+              템플릿 다운로드
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+```
+
+## 접근성 (A11y)
+
+### 1. 키보드 네비게이션
+```tsx
+const AccessibleButton = ({ children, ...props }) => {
+  return (
+    <Button
+      className="focus:ring-2 focus:ring-primary focus:ring-offset-2"
+      {...props}
+    >
+      {children}
+    </Button>
+  );
+};
+```
+
+### 2. 스크린 리더 지원
+```tsx
+const AccessibleForm = () => {
+  return (
+    <form>
+      <label htmlFor="file-upload" className="sr-only">
+        파일 업로드
+      </label>
+      <input
+        id="file-upload"
+        type="file"
+        className="sr-only"
+        aria-describedby="file-upload-help"
+      />
+      <div id="file-upload-help" className="text-sm text-gray-500">
+        CSV 또는 Excel 파일을 선택하세요
+      </div>
+    </form>
+  );
+};
+```
+
+## 애니메이션 및 전환
+
+### 1. 부드러운 전환
+```css
+.transition-smooth {
+  @apply transition-all duration-300 ease-in-out;
+}
+
+.hover-lift {
+  @apply hover:transform hover:-translate-y-1 hover:shadow-lg transition-all duration-200;
+}
+```
+
+### 2. 로딩 애니메이션
+```tsx
+const LoadingSpinner = () => {
+  return (
+    <div className="flex items-center justify-center p-8">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+};
+```
+
+## 개발 가이드라인
+
+1. **일관성**: shadcn/ui 컴포넌트를 우선 사용
+2. **반응형**: 모바일 우선 접근법으로 디자인
+3. **접근성**: WCAG 2.1 AA 수준 준수
+4. **성능**: 불필요한 리렌더링 방지
+5. **사용자 경험**: 직관적이고 명확한 인터페이스 제공

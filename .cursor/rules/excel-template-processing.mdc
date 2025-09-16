@@ -1,0 +1,242 @@
+---
+globs: *.ts,*.tsx,*.py
+description: Excel 템플릿 처리 및 보고서 생성 가이드
+---
+
+# Excel 템플릿 처리 가이드
+
+## 핵심 원칙
+
+**템플릿 엄격 준수**: [templates/SOP_Report_template.xlsx](mdc:templates/SOP_Report_template.xlsx)의 시트/헤더/순서/서식을 **STRICT** 준수
+
+## 템플릿 구조 분석
+
+### 필수 시트 (PRD 기준)
+1. **NPD_Schedule** - 신제품 개발 일정표
+2. **Fadeout** - Fade-out 단종 관리
+3. **NPD_Review** - 신제품 리뷰
+
+### 템플릿 파싱 요구사항
+- 시트명, 컬럼 헤더, 순서 완전 일치
+- 병합셀, 조건부서식, 정렬 상속
+- 추가 시트 생성 금지
+- 변경 필요 시 템플릿 버전 교체
+
+## Excel 처리 라이브러리
+
+### ExcelJS 사용
+```typescript
+import ExcelJS from 'exceljs';
+
+// 템플릿 로드
+const templatePath = 'templates/SOP_Report_template.xlsx';
+const workbook = new ExcelJS.Workbook();
+await workbook.xlsx.readFile(templatePath);
+
+// 시트 접근
+const npdScheduleSheet = workbook.getWorksheet('NPD_Schedule');
+const fadeoutSheet = workbook.getWorksheet('Fadeout');
+const npdReviewSheet = workbook.getWorksheet('NPD_Review');
+```
+
+## 데이터 매핑 전략
+
+### 1. 시트별 데이터 매핑
+```typescript
+interface SheetMapping {
+  NPD_Schedule: {
+    task: string;
+    planDate: Date;
+    actualDate: Date;
+    material?: string;
+    issue?: string;
+    owner?: string;
+  };
+  Fadeout: {
+    material: string;
+    materialName: string;
+    inventoryQty: number;
+    avgSales: number;
+    dosDays: number;
+    riskLevel: 'High' | 'Med' | 'Low';
+  };
+  NPD_Review: {
+    material: string;
+    launchDate: Date;
+    salesQty: number;
+    inventoryQty: number;
+    depletionRate: number;
+    targetAchievement: number;
+  };
+}
+```
+
+### 2. 헤더 매핑 검증
+```typescript
+const validateHeaders = (sheet: ExcelJS.Worksheet, expectedHeaders: string[]) => {
+  const actualHeaders = sheet.getRow(1).values as string[];
+  const mismatches = expectedHeaders.filter((header, index) => 
+    actualHeaders[index + 1] !== header
+  );
+  
+  if (mismatches.length > 0) {
+    throw new Error(`헤더 불일치: ${mismatches.join(', ')}`);
+  }
+};
+```
+
+## KPI 계산 로직
+
+### 핵심 계산식 (PRD 6) 준수
+```typescript
+// 월평균판매 계산
+const calculateAvgSales = (salesData: SalesRecord[], months: number = 3) => {
+  const recentMonths = salesData
+    .sort((a, b) => b.fiscalYm - a.fiscalYm)
+    .slice(0, months);
+  
+  return recentMonths.reduce((sum, record) => sum + record.qty, 0) / months;
+};
+
+// DOS 계산 (분모=0 예외 처리)
+const calculateDOS = (inventoryQty: number, avgSales: number) => {
+  if (avgSales === 0) return Infinity;
+  return inventoryQty / (avgSales / 30);
+};
+
+// 소진율 계산
+const calculateDepletionRate = (salesQty: number, inventoryQty: number) => {
+  const total = salesQty + inventoryQty;
+  if (total === 0) return 0;
+  return (salesQty / total) * 100;
+};
+
+// 위험도 분류
+const calculateRiskLevel = (dosDays: number, invValueShare: number) => {
+  if (dosDays >= 180 || invValueShare >= 0.03) return 'High';
+  if (dosDays >= 90 || invValueShare >= 0.02) return 'Med';
+  return 'Low';
+};
+```
+
+## 보고서 생성 프로세스
+
+### 1. 템플릿 로드 및 검증
+```typescript
+const loadTemplate = async (templatePath: string) => {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(templatePath);
+  
+  // 템플릿 구조 검증
+  validateTemplateStructure(workbook);
+  
+  return workbook;
+};
+```
+
+### 2. 데이터 삽입
+```typescript
+const populateSheet = (sheet: ExcelJS.Worksheet, data: any[], startRow: number = 2) => {
+  data.forEach((record, index) => {
+    const row = sheet.getRow(startRow + index);
+    Object.values(record).forEach((value, colIndex) => {
+      row.getCell(colIndex + 1).value = value;
+    });
+  });
+};
+```
+
+### 3. 서식 적용
+```typescript
+const applyFormatting = (sheet: ExcelJS.Worksheet) => {
+  // 조건부 서식 적용
+  sheet.addConditionalFormatting({
+    ref: 'A:Z',
+    rules: [
+      {
+        type: 'cellIs',
+        operator: 'greaterThan',
+        formulae: [180],
+        style: { fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } } }
+      }
+    ]
+  });
+};
+```
+
+## 검증 및 오류 처리
+
+### 1. 템플릿 불일치 검증
+```typescript
+const validateTemplateCompliance = (workbook: ExcelJS.Workbook) => {
+  const errors: string[] = [];
+  
+  // 시트 존재 확인
+  const requiredSheets = ['NPD_Schedule', 'Fadeout', 'NPD_Review'];
+  requiredSheets.forEach(sheetName => {
+    if (!workbook.getWorksheet(sheetName)) {
+      errors.push(`필수 시트 누락: ${sheetName}`);
+    }
+  });
+  
+  // 헤더 검증
+  const npdSheet = workbook.getWorksheet('NPD_Schedule');
+  if (npdSheet) {
+    const headers = npdSheet.getRow(1).values as string[];
+    if (!headers.includes('task') || !headers.includes('plan_date')) {
+      errors.push('NPD_Schedule 시트 헤더 불일치');
+    }
+  }
+  
+  return errors;
+};
+```
+
+### 2. 검증 실패 시 처리
+```typescript
+const handleValidationFailure = (errors: string[]) => {
+  const validationReport = {
+    timestamp: new Date().toISOString(),
+    errors,
+    status: 'FAILED'
+  };
+  
+  // output/_validation.json에 기록
+  fs.writeFileSync('output/_validation.json', JSON.stringify(validationReport, null, 2));
+  
+  throw new Error(`템플릿 검증 실패: ${errors.join(', ')}`);
+};
+```
+
+## 출력 파일 생성
+
+### 1. 보고서 저장
+```typescript
+const generateReport = async (data: ProcessedData, templatePath: string) => {
+  const workbook = await loadTemplate(templatePath);
+  
+  // 데이터 삽입
+  populateSheet(workbook.getWorksheet('NPD_Schedule'), data.npdSchedule);
+  populateSheet(workbook.getWorksheet('Fadeout'), data.fadeout);
+  populateSheet(workbook.getWorksheet('NPD_Review'), data.npdReview);
+  
+  // 서식 적용
+  applyFormatting(workbook.getWorksheet('NPD_Schedule'));
+  applyFormatting(workbook.getWorksheet('Fadeout'));
+  applyFormatting(workbook.getWorksheet('NPD_Review'));
+  
+  // 파일 저장
+  const outputPath = `output/SOP_Report_${new Date().toISOString().slice(0, 7).replace('-', '')}.xlsx`;
+  await workbook.xlsx.writeFile(outputPath);
+  
+  return outputPath;
+};
+```
+
+## 개발 가이드라인
+
+1. **템플릿 우선**: 모든 출력은 템플릿 구조를 엄격히 준수
+2. **검증 필수**: 데이터 삽입 전 반드시 템플릿 구조 검증
+3. **예외 처리**: 분모=0 등 수식 예외 상황 처리 필수
+4. **로깅**: 모든 검증 실패는 _validation.json에 기록
+5. **성능**: 대용량 데이터 처리 시 스트리밍 방식 사용

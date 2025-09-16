@@ -1,0 +1,393 @@
+---
+globs: *.ts,*.tsx,*.js,*.jsx
+description: 코딩 표준 및 품질 관리 가이드
+---
+
+# 코딩 표준 가이드
+
+## 코드 품질 원칙
+
+**일관성과 가독성**: 팀 전체가 동일한 코딩 스타일을 유지하여 유지보수성 향상
+
+## TypeScript 코딩 표준
+
+### 1. 네이밍 컨벤션
+```typescript
+// 변수 및 함수: camelCase
+const userName = 'john_doe';
+const calculateDOS = (inventory: number, sales: number) => {};
+
+// 상수: UPPER_SNAKE_CASE
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const DEFAULT_UOM = 'EA';
+
+// 인터페이스: PascalCase
+interface ValidationReport {
+  status: 'PASS' | 'FAIL' | 'WARNING';
+  errors: ValidationError[];
+}
+
+// 타입: PascalCase
+type RiskLevel = 'High' | 'Med' | 'Low';
+
+// 컴포넌트: PascalCase
+const FileUpload = () => {};
+
+// 파일명: kebab-case
+// file-upload.tsx
+// data-validation.ts
+```
+
+### 2. 타입 정의
+```typescript
+// 인터페이스 우선 사용
+interface UserData {
+  id: string;
+  name: string;
+  email: string;
+}
+
+// 제네릭 활용
+interface ApiResponse<T> {
+  data: T;
+  status: number;
+  message: string;
+}
+
+// 유니온 타입 활용
+type FileStatus = 'uploading' | 'processing' | 'completed' | 'error';
+
+// 옵셔널 프로퍼티 명시
+interface Config {
+  apiKey: string;
+  timeout?: number;
+  retries?: number;
+}
+```
+
+### 3. 함수 정의
+```typescript
+// 화살표 함수 우선 사용
+const calculateAverage = (numbers: number[]): number => {
+  return numbers.reduce((sum, num) => sum + num, 0) / numbers.length;
+};
+
+// 비동기 함수
+const processData = async (data: RawData[]): Promise<ProcessedData[]> => {
+  try {
+    const validatedData = await validateData(data);
+    return await transformData(validatedData);
+  } catch (error) {
+    throw new Error(`데이터 처리 실패: ${error.message}`);
+  }
+};
+
+// 함수 오버로딩
+function formatDate(date: Date): string;
+function formatDate(date: string): string;
+function formatDate(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toISOString().split('T')[0];
+}
+```
+
+## React 컴포넌트 표준
+
+### 1. 컴포넌트 구조
+```typescript
+// 컴포넌트 파일 구조
+import React from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+
+// Props 인터페이스 정의
+interface FileUploadProps {
+  onFileSelect: (file: File) => void;
+  maxSize?: number;
+  acceptedTypes?: string[];
+  className?: string;
+}
+
+// 컴포넌트 정의
+export const FileUpload: React.FC<FileUploadProps> = ({
+  onFileSelect,
+  maxSize = 10 * 1024 * 1024,
+  acceptedTypes = ['.csv', '.xlsx'],
+  className,
+}) => {
+  // 상태 정의
+  const [isDragOver, setIsDragOver] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  // 이벤트 핸들러
+  const handleFileSelect = (file: File) => {
+    if (file.size > maxSize) {
+      setError(`파일 크기 초과: ${file.size} > ${maxSize}`);
+      return;
+    }
+    
+    onFileSelect(file);
+    setError(null);
+  };
+
+  // 렌더링
+  return (
+    <Card className={cn('p-6', className)}>
+      {/* 컴포넌트 내용 */}
+    </Card>
+  );
+};
+```
+
+### 2. 커스텀 훅
+```typescript
+// hooks/useFileUpload.ts
+import { useState, useCallback } from 'react';
+
+interface UseFileUploadReturn {
+  file: File | null;
+  isUploading: boolean;
+  error: string | null;
+  uploadFile: (file: File) => Promise<void>;
+  clearFile: () => void;
+}
+
+export const useFileUpload = (): UseFileUploadReturn => {
+  const [file, setFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const uploadFile = useCallback(async (file: File) => {
+    setIsUploading(true);
+    setError(null);
+    
+    try {
+      // 파일 업로드 로직
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setFile(file);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '업로드 실패');
+    } finally {
+      setIsUploading(false);
+    }
+  }, []);
+
+  const clearFile = useCallback(() => {
+    setFile(null);
+    setError(null);
+  }, []);
+
+  return {
+    file,
+    isUploading,
+    error,
+    uploadFile,
+    clearFile,
+  };
+};
+```
+
+## 에러 처리 표준
+
+### 1. 에러 타입 정의
+```typescript
+// types/errors.ts
+export class ValidationError extends Error {
+  constructor(
+    message: string,
+    public field: string,
+    public value: unknown
+  ) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
+export class ProcessingError extends Error {
+  constructor(
+    message: string,
+    public step: string,
+    public originalError?: Error
+  ) {
+    super(message);
+    this.name = 'ProcessingError';
+  }
+}
+
+export class TemplateError extends Error {
+  constructor(
+    message: string,
+    public sheetName: string,
+    public expectedHeader: string
+  ) {
+    super(message);
+    this.name = 'TemplateError';
+  }
+}
+```
+
+### 2. 에러 처리 패턴
+```typescript
+// lib/error-handler.ts
+export const handleError = (error: unknown): string => {
+  if (error instanceof ValidationError) {
+    return `검증 오류 (${error.field}): ${error.message}`;
+  }
+  
+  if (error instanceof ProcessingError) {
+    return `처리 오류 (${error.step}): ${error.message}`;
+  }
+  
+  if (error instanceof TemplateError) {
+    return `템플릿 오류 (${error.sheetName}): ${error.message}`;
+  }
+  
+  if (error instanceof Error) {
+    return error.message;
+  }
+  
+  return '알 수 없는 오류가 발생했습니다.';
+};
+
+// 사용 예시
+try {
+  await processData(data);
+} catch (error) {
+  const errorMessage = handleError(error);
+  console.error(errorMessage);
+  // 사용자에게 에러 메시지 표시
+}
+```
+
+## 성능 최적화 표준
+
+### 1. 메모이제이션
+```typescript
+import { memo, useMemo, useCallback } from 'react';
+
+// 컴포넌트 메모이제이션
+export const ExpensiveComponent = memo(({ data }: { data: ComplexData[] }) => {
+  // 계산 비용이 높은 작업
+  const processedData = useMemo(() => {
+    return data.map(item => ({
+      ...item,
+      calculatedValue: expensiveCalculation(item),
+    }));
+  }, [data]);
+
+  // 콜백 메모이제이션
+  const handleClick = useCallback((id: string) => {
+    // 클릭 핸들러 로직
+  }, []);
+
+  return (
+    <div>
+      {processedData.map(item => (
+        <div key={item.id} onClick={() => handleClick(item.id)}>
+          {item.name}
+        </div>
+      ))}
+    </div>
+  );
+});
+```
+
+### 2. 지연 로딩
+```typescript
+import { lazy, Suspense } from 'react';
+
+// 컴포넌트 지연 로딩
+const HeavyComponent = lazy(() => import('./HeavyComponent'));
+
+export const App = () => {
+  return (
+    <Suspense fallback={<div>로딩 중...</div>}>
+      <HeavyComponent />
+    </Suspense>
+  );
+};
+```
+
+## 테스트 표준
+
+### 1. 단위 테스트
+```typescript
+// __tests__/utils/calculations.test.ts
+import { calculateDOS, calculateDepletionRate } from '@/lib/calculations';
+
+describe('KPI 계산 함수', () => {
+  describe('calculateDOS', () => {
+    it('정상적인 경우 DOS를 계산해야 함', () => {
+      const inventory = 100;
+      const avgSales = 10;
+      const expected = 100 / (10 / 30); // 300
+      
+      expect(calculateDOS(inventory, avgSales)).toBe(expected);
+    });
+
+    it('월평균판매가 0인 경우 Infinity를 반환해야 함', () => {
+      const inventory = 100;
+      const avgSales = 0;
+      
+      expect(calculateDOS(inventory, avgSales)).toBe(Infinity);
+    });
+  });
+
+  describe('calculateDepletionRate', () => {
+    it('소진율을 올바르게 계산해야 함', () => {
+      const salesQty = 80;
+      const inventoryQty = 20;
+      const expected = (80 / (80 + 20)) * 100; // 80%
+      
+      expect(calculateDepletionRate(salesQty, inventoryQty)).toBe(expected);
+    });
+  });
+});
+```
+
+### 2. 컴포넌트 테스트
+```typescript
+// __tests__/components/FileUpload.test.tsx
+import { render, screen, fireEvent } from '@testing-library/react';
+import { FileUpload } from '@/components/FileUpload';
+
+describe('FileUpload 컴포넌트', () => {
+  it('파일 선택 시 onFileSelect가 호출되어야 함', () => {
+    const mockOnFileSelect = jest.fn();
+    render(<FileUpload onFileSelect={mockOnFileSelect} />);
+    
+    const file = new File(['test'], 'test.csv', { type: 'text/csv' });
+    const input = screen.getByRole('button');
+    
+    fireEvent.click(input);
+    // 파일 선택 로직 테스트
+    
+    expect(mockOnFileSelect).toHaveBeenCalledWith(file);
+  });
+});
+```
+
+## 코드 리뷰 체크리스트
+
+### 1. 필수 체크 항목
+- [ ] 타입 안전성: 모든 변수와 함수에 적절한 타입 정의
+- [ ] 에러 처리: 모든 비동기 작업에 에러 처리 포함
+- [ ] 성능: 불필요한 리렌더링이나 계산 방지
+- [ ] 접근성: 키보드 네비게이션 및 스크린 리더 지원
+- [ ] 테스트: 새로운 기능에 대한 테스트 코드 작성
+
+### 2. 코드 품질 체크
+- [ ] 네이밍: 변수와 함수명이 명확하고 일관성 있음
+- [ ] 함수 크기: 단일 함수가 50줄을 초과하지 않음
+- [ ] 복잡도: 중첩된 조건문이 3단계를 초과하지 않음
+- [ ] 주석: 복잡한 로직에 대한 명확한 주석 포함
+- [ ] 재사용성: 공통 로직은 재사용 가능한 함수로 분리
+
+## 개발 가이드라인
+
+1. **일관성**: 팀 전체가 동일한 코딩 스타일 유지
+2. **가독성**: 코드가 6개월 후에도 이해 가능하도록 작성
+3. **테스트**: 모든 새로운 기능에 대한 테스트 작성
+4. **문서화**: 복잡한 로직에 대한 명확한 주석 작성
+5. **리뷰**: 모든 코드는 최소 1명의 리뷰 후 머지

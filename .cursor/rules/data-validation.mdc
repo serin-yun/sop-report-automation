@@ -1,0 +1,316 @@
+---
+globs: *.ts,*.tsx,*.py
+description: 데이터 검증 및 품질 관리 가이드
+---
+
+# 데이터 검증 가이드
+
+## 검증 원칙
+
+**RAW 데이터 정규화**: 업로드된 RAW 파일에서만 데이터 추출, 임의 가정/할루시네이션 금지
+
+## 스키마 정의
+
+### 1. MASTER_SKU 스키마
+```typescript
+const MasterSkuSchema = z.object({
+  material: z.string().min(1, "Material 코드 필수"),
+  material_name: z.string().min(1, "Material명 필수"),
+  brand: z.string().min(1, "브랜드 필수"),
+  life: z.enum(['NPD', 'ACTIVE', 'DISCONTINUED']),
+  launch_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "날짜 형식: YYYY-MM-DD"),
+  discontinue_flag: z.number().min(0).max(1),
+  internal_cost: z.number().min(0, "비용은 0 이상"),
+  uom_base: z.string().min(1, "기본 UoM 필수")
+});
+```
+
+### 2. SLS_ACTUAL 스키마
+```typescript
+const SalesActualSchema = z.object({
+  fiscal_ym: z.string().regex(/^\d{6}$/, "회계월 형식: YYYYMM"),
+  country: z.string().min(1, "국가 코드 필수"),
+  sales_org: z.string().min(1, "영업조직 필수"),
+  material: z.string().min(1, "Material 코드 필수"),
+  qty: z.number().min(0, "수량은 0 이상"),
+  amount: z.number().min(0, "금액은 0 이상"),
+  uom: z.string().min(1, "UoM 필수"),
+  currency: z.string().length(3, "통화 코드 3자리")
+});
+```
+
+### 3. INVENTORY_SNAP 스키마
+```typescript
+const InventorySnapSchema = z.object({
+  snapshot_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "날짜 형식: YYYY-MM-DD"),
+  fiscal_ym: z.string().regex(/^\d{6}$/, "회계월 형식: YYYYMM"),
+  plant: z.string().min(1, "플랜트 코드 필수"),
+  sloc: z.string().min(1, "저장위치 필수"),
+  country: z.string().min(1, "국가 코드 필수"),
+  material: z.string().min(1, "Material 코드 필수"),
+  qty: z.number().min(0, "수량은 0 이상"),
+  value: z.number().min(0, "재고금액은 0 이상"),
+  uom: z.string().min(1, "UoM 필수"),
+  currency: z.string().length(3, "통화 코드 3자리")
+});
+```
+
+## 데이터 검증 프로세스
+
+### 1. 파일 업로드 검증
+```typescript
+const validateFileUpload = (file: File) => {
+  const allowedTypes = ['.csv', '.xlsx', '.xls'];
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  
+  // 파일 확장자 검증
+  const extension = path.extname(file.name).toLowerCase();
+  if (!allowedTypes.includes(extension)) {
+    throw new Error(`지원하지 않는 파일 형식: ${extension}`);
+  }
+  
+  // 파일 크기 검증
+  if (file.size > maxSize) {
+    throw new Error(`파일 크기 초과: ${file.size} > ${maxSize}`);
+  }
+  
+  return true;
+};
+```
+
+### 2. CSV 파싱 및 검증
+```typescript
+const parseAndValidateCSV = async (file: File, schema: z.ZodSchema) => {
+  return new Promise((resolve, reject) => {
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        try {
+          const validatedData = results.data.map((row, index) => {
+            try {
+              return schema.parse(row);
+            } catch (error) {
+              throw new Error(`행 ${index + 1} 검증 실패: ${error.message}`);
+            }
+          });
+          resolve(validatedData);
+        } catch (error) {
+          reject(error);
+        }
+      },
+      error: (error) => {
+        reject(new Error(`CSV 파싱 실패: ${error.message}`));
+      }
+    });
+  });
+};
+```
+
+### 3. Excel 파싱 및 검증
+```typescript
+const parseAndValidateExcel = async (file: File, schema: z.ZodSchema) => {
+  const buffer = await file.arrayBuffer();
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  
+  const worksheet = workbook.worksheets[0];
+  const data: any[] = [];
+  
+  // 헤더 추출
+  const headers = worksheet.getRow(1).values as string[];
+  
+  // 데이터 행 처리
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return; // 헤더 스킵
+    
+    const rowData: any = {};
+    row.eachCell((cell, colNumber) => {
+      const header = headers[colNumber - 1];
+      rowData[header] = cell.value;
+    });
+    
+    data.push(rowData);
+  });
+  
+  // 스키마 검증
+  const validatedData = data.map((row, index) => {
+    try {
+      return schema.parse(row);
+    } catch (error) {
+      throw new Error(`행 ${index + 1} 검증 실패: ${error.message}`);
+    }
+  });
+  
+  return validatedData;
+};
+```
+
+## 데이터 품질 검증
+
+### 1. 필수 필드 검증
+```typescript
+const validateRequiredFields = (data: any[], requiredFields: string[]) => {
+  const errors: string[] = [];
+  
+  data.forEach((row, index) => {
+    requiredFields.forEach(field => {
+      if (!row[field] || row[field] === '') {
+        errors.push(`행 ${index + 1}: 필수 필드 누락 - ${field}`);
+      }
+    });
+  });
+  
+  return errors;
+};
+```
+
+### 2. 데이터 타입 검증
+```typescript
+const validateDataTypes = (data: any[], fieldTypes: Record<string, string>) => {
+  const errors: string[] = [];
+  
+  data.forEach((row, index) => {
+    Object.entries(fieldTypes).forEach(([field, expectedType]) => {
+      const value = row[field];
+      const actualType = typeof value;
+      
+      if (expectedType === 'number' && isNaN(Number(value))) {
+        errors.push(`행 ${index + 1}: ${field}는 숫자여야 함 - ${value}`);
+      } else if (expectedType === 'date' && !isValidDate(value)) {
+        errors.push(`행 ${index + 1}: ${field}는 유효한 날짜여야 함 - ${value}`);
+      }
+    });
+  });
+  
+  return errors;
+};
+```
+
+### 3. 비즈니스 룰 검증
+```typescript
+const validateBusinessRules = (data: any[]) => {
+  const errors: string[] = [];
+  
+  data.forEach((row, index) => {
+    // 음수 값 검증
+    if (row.qty && row.qty < 0) {
+      errors.push(`행 ${index + 1}: 수량은 음수일 수 없음 - ${row.qty}`);
+    }
+    
+    // 날짜 범위 검증
+    if (row.launch_date && new Date(row.launch_date) > new Date()) {
+      errors.push(`행 ${index + 1}: 출시일은 미래일 수 없음 - ${row.launch_date}`);
+    }
+    
+    // 통화 코드 검증
+    if (row.currency && !['KRW', 'USD', 'EUR'].includes(row.currency)) {
+      errors.push(`행 ${index + 1}: 지원하지 않는 통화 코드 - ${row.currency}`);
+    }
+  });
+  
+  return errors;
+};
+```
+
+## 검증 결과 처리
+
+### 1. 검증 리포트 생성
+```typescript
+interface ValidationReport {
+  timestamp: string;
+  fileName: string;
+  totalRows: number;
+  validRows: number;
+  errorRows: number;
+  errors: ValidationError[];
+  warnings: ValidationWarning[];
+  status: 'PASS' | 'FAIL' | 'WARNING';
+}
+
+const generateValidationReport = (
+  fileName: string,
+  data: any[],
+  errors: string[],
+  warnings: string[] = []
+): ValidationReport => {
+  const totalRows = data.length;
+  const errorRows = errors.length;
+  const validRows = totalRows - errorRows;
+  
+  return {
+    timestamp: new Date().toISOString(),
+    fileName,
+    totalRows,
+    validRows,
+    errorRows,
+    errors: errors.map((error, index) => ({
+      id: index + 1,
+      message: error,
+      severity: 'error'
+    })),
+    warnings: warnings.map((warning, index) => ({
+      id: index + 1,
+      message: warning,
+      severity: 'warning'
+    })),
+    status: errorRows > 0 ? 'FAIL' : warnings.length > 0 ? 'WARNING' : 'PASS'
+  };
+};
+```
+
+### 2. 검증 실패 시 처리
+```typescript
+const handleValidationFailure = (report: ValidationReport) => {
+  // 검증 리포트를 output/_validation.json에 저장
+  const reportPath = 'output/_validation.json';
+  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+  
+  // 사용자에게 오류 메시지 표시
+  throw new Error(`데이터 검증 실패: ${report.errorRows}개 오류 발견`);
+};
+```
+
+## 데이터 정규화
+
+### 1. UoM 정규화
+```typescript
+const normalizeUoM = (value: number, fromUoM: string, toUoM: string) => {
+  const conversionRates: Record<string, Record<string, number>> = {
+    'EA': { 'EA': 1, 'BOX': 12, 'CASE': 144 },
+    'BOX': { 'EA': 1/12, 'BOX': 1, 'CASE': 12 },
+    'CASE': { 'EA': 1/144, 'BOX': 1/12, 'CASE': 1 }
+  };
+  
+  const rate = conversionRates[fromUoM]?.[toUoM];
+  if (!rate) {
+    throw new Error(`UoM 변환 불가: ${fromUoM} -> ${toUoM}`);
+  }
+  
+  return value * rate;
+};
+```
+
+### 2. 통화 정규화
+```typescript
+const normalizeCurrency = (amount: number, fromCurrency: string, toCurrency: string, exchangeRate: number) => {
+  if (fromCurrency === toCurrency) return amount;
+  
+  // KRW 기준으로 정규화
+  if (fromCurrency === 'USD') {
+    return amount * exchangeRate;
+  } else if (fromCurrency === 'EUR') {
+    return amount * exchangeRate;
+  }
+  
+  return amount;
+};
+```
+
+## 개발 가이드라인
+
+1. **스키마 우선**: 모든 데이터는 정의된 스키마로 검증
+2. **오류 추적**: 모든 검증 오류는 상세한 위치 정보와 함께 기록
+3. **사용자 피드백**: 검증 실패 시 구체적인 수정 방법 제시
+4. **성능 고려**: 대용량 데이터 처리 시 스트리밍 방식 사용
+5. **로깅**: 모든 검증 과정을 로그로 기록하여 디버깅 지원

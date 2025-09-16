@@ -1,0 +1,366 @@
+---
+globs: *.yaml,*.yml,*.env*,*.ts,*.js
+description: 환경 설정 및 구성 관리 가이드
+---
+
+# 환경 설정 가이드
+
+## 설정 원칙
+
+**하드코딩 금지**: 모든 경로/파라미터는 함수 인자 또는 .env로 주입
+
+## 환경 변수 관리
+
+### 1. .env.local (로컬 개발)
+```env
+# OpenAI API 설정
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4
+OPENAI_MAX_TOKENS=4000
+OPENAI_TEMPERATURE=0.7
+
+# 애플리케이션 설정
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_NAME=S&OP 보고서 자동화
+NEXT_PUBLIC_APP_VERSION=1.0.0
+
+# 인증 설정
+NEXTAUTH_SECRET=your_nextauth_secret_here
+NEXTAUTH_URL=http://localhost:3000
+
+# 파일 업로드 설정
+MAX_FILE_SIZE=10485760
+ALLOWED_FILE_TYPES=.csv,.xlsx,.xls
+UPLOAD_DIR=./uploads
+
+# Excel 템플릿 설정
+TEMPLATE_PATH=./templates/SOP_Report_template.xlsx
+OUTPUT_DIR=./output
+
+# 데이터베이스 설정 (선택사항)
+DATABASE_URL=postgresql://user:password@localhost:5432/sop_db
+
+# 로깅 설정
+LOG_LEVEL=info
+LOG_FILE=./logs/app.log
+
+# 성능 설정
+MAX_CONCURRENT_UPLOADS=5
+PROCESSING_TIMEOUT=300000
+```
+
+### 2. .env.production (프로덕션)
+```env
+# OpenAI API 설정
+OPENAI_API_KEY=your_production_openai_api_key
+OPENAI_MODEL=gpt-4
+OPENAI_MAX_TOKENS=4000
+OPENAI_TEMPERATURE=0.3
+
+# 애플리케이션 설정
+NEXT_PUBLIC_APP_URL=https://sop-reports.yourcompany.com
+NEXT_PUBLIC_APP_NAME=S&OP 보고서 자동화
+NEXT_PUBLIC_APP_VERSION=1.0.0
+
+# 인증 설정
+NEXTAUTH_SECRET=your_production_nextauth_secret
+NEXTAUTH_URL=https://sop-reports.yourcompany.com
+
+# 파일 업로드 설정
+MAX_FILE_SIZE=52428800
+ALLOWED_FILE_TYPES=.csv,.xlsx,.xls
+UPLOAD_DIR=/app/uploads
+
+# Excel 템플릿 설정
+TEMPLATE_PATH=/app/templates/SOP_Report_template.xlsx
+OUTPUT_DIR=/app/output
+
+# 데이터베이스 설정
+DATABASE_URL=postgresql://user:password@db:5432/sop_db
+
+# 로깅 설정
+LOG_LEVEL=warn
+LOG_FILE=/app/logs/app.log
+
+# 성능 설정
+MAX_CONCURRENT_UPLOADS=10
+PROCESSING_TIMEOUT=600000
+```
+
+## MDC 설정 파일
+
+### 1. config/mdc.yaml
+```yaml
+# S&OP 보고서 자동화 설정
+app:
+  name: "S&OP 보고서 자동화"
+  version: "1.0.0"
+  environment: "development"
+
+# 데이터 처리 설정
+data:
+  # 회계월 형식
+  fiscal_month_format: "YYYYMM"
+  
+  # 기본 UoM
+  default_uom: "EA"
+  
+  # 환율 기준 통화
+  base_currency: "KRW"
+  
+  # 월평균판매 윈도우 (개월)
+  avg_sales_months: 3
+  
+  # 신제품 정의 (출시 후 개월)
+  new_product_months: 6
+
+# KPI 계산 설정
+calculations:
+  # DOS 임계치 (일)
+  dos_thresholds:
+    slow_moving: 180
+    high_risk: 90
+    medium_risk: 60
+  
+  # 부진 기준 (재고금액 비중)
+  underperformance_thresholds:
+    domestic: 0.02
+    overseas: 0.03
+
+# Excel 템플릿 설정
+excel:
+  template_path: "templates/SOP_Report_template.xlsx"
+  output_dir: "output"
+  max_rows_per_sheet: 100000
+  
+  # 시트 설정
+  sheets:
+    npd_schedule:
+      name: "NPD_Schedule"
+      required: true
+    fadeout:
+      name: "Fadeout"
+      required: true
+    npd_review:
+      name: "NPD_Review"
+      required: true
+
+# 데이터 검증 설정
+validation:
+  # 필수 필드
+  required_fields:
+    master_sku:
+      - material
+      - material_name
+      - brand
+      - life
+      - launch_date
+    sales_actual:
+      - fiscal_ym
+      - country
+      - material
+      - qty
+      - amount
+    inventory_snap:
+      - snapshot_date
+      - fiscal_ym
+      - material
+      - qty
+      - value
+  
+  # 데이터 타입 검증
+  field_types:
+    material: "string"
+    qty: "number"
+    amount: "number"
+    launch_date: "date"
+    fiscal_ym: "string"
+
+# OpenAI 설정
+openai:
+  model: "gpt-4"
+  max_tokens: 4000
+  temperature: 0.7
+  timeout: 30000
+  
+  # 프롬프트 템플릿
+  prompts:
+    data_analysis: |
+      다음 S&OP 데이터를 분석하여 인사이트를 제공해주세요:
+      - 데이터 품질 이슈
+      - 비즈니스 인사이트
+      - 개선 제안사항
+```
+
+### 2. 설정 로더
+```typescript
+// lib/config/loader.ts
+import yaml from 'js-yaml';
+import fs from 'fs';
+import path from 'path';
+
+export interface AppConfig {
+  app: {
+    name: string;
+    version: string;
+    environment: string;
+  };
+  data: {
+    fiscal_month_format: string;
+    default_uom: string;
+    base_currency: string;
+    avg_sales_months: number;
+    new_product_months: number;
+  };
+  calculations: {
+    dos_thresholds: {
+      slow_moving: number;
+      high_risk: number;
+      medium_risk: number;
+    };
+    underperformance_thresholds: {
+      domestic: number;
+      overseas: number;
+    };
+  };
+  excel: {
+    template_path: string;
+    output_dir: string;
+    max_rows_per_sheet: number;
+    sheets: Record<string, { name: string; required: boolean }>;
+  };
+  validation: {
+    required_fields: Record<string, string[]>;
+    field_types: Record<string, string>;
+  };
+  openai: {
+    model: string;
+    max_tokens: number;
+    temperature: number;
+    timeout: number;
+    prompts: Record<string, string>;
+  };
+}
+
+export const loadConfig = (): AppConfig => {
+  const configPath = path.join(process.cwd(), 'config', 'mdc.yaml');
+  const configFile = fs.readFileSync(configPath, 'utf8');
+  return yaml.load(configFile) as AppConfig;
+};
+
+export const config = loadConfig();
+```
+
+## 환경별 설정 관리
+
+### 1. 설정 팩토리
+```typescript
+// lib/config/factory.ts
+import { config } from './loader';
+
+export const getConfig = () => {
+  const environment = process.env.NODE_ENV || 'development';
+  
+  return {
+    ...config,
+    app: {
+      ...config.app,
+      environment,
+      url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    },
+    openai: {
+      ...config.openai,
+      apiKey: process.env.OPENAI_API_KEY,
+      model: process.env.OPENAI_MODEL || config.openai.model,
+    },
+    excel: {
+      ...config.excel,
+      templatePath: process.env.TEMPLATE_PATH || config.excel.template_path,
+      outputDir: process.env.OUTPUT_DIR || config.excel.output_dir,
+    },
+    upload: {
+      maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760'),
+      allowedTypes: process.env.ALLOWED_FILE_TYPES?.split(',') || ['.csv', '.xlsx', '.xls'],
+      uploadDir: process.env.UPLOAD_DIR || './uploads',
+    },
+  };
+};
+```
+
+### 2. 환경 변수 검증
+```typescript
+// lib/config/validator.ts
+import { z } from 'zod';
+
+const envSchema = z.object({
+  OPENAI_API_KEY: z.string().min(1, 'OpenAI API 키가 필요합니다'),
+  NEXT_PUBLIC_APP_URL: z.string().url('유효한 앱 URL이 필요합니다'),
+  NEXTAUTH_SECRET: z.string().min(32, 'NEXTAUTH_SECRET은 32자 이상이어야 합니다'),
+  TEMPLATE_PATH: z.string().min(1, '템플릿 경로가 필요합니다'),
+  OUTPUT_DIR: z.string().min(1, '출력 디렉토리가 필요합니다'),
+});
+
+export const validateEnv = () => {
+  try {
+    envSchema.parse(process.env);
+    return true;
+  } catch (error) {
+    console.error('환경 변수 검증 실패:', error);
+    return false;
+  }
+};
+```
+
+## 설정 사용 예시
+
+### 1. API 라우트에서 사용
+```typescript
+// app/api/process/route.ts
+import { getConfig } from '@/lib/config/factory';
+import { validateEnv } from '@/lib/config/validator';
+
+export async function POST(request: Request) {
+  // 환경 변수 검증
+  if (!validateEnv()) {
+    return Response.json({ error: '환경 설정 오류' }, { status: 500 });
+  }
+  
+  const config = getConfig();
+  const { templatePath, outputDir } = config.excel;
+  
+  // 설정을 사용한 처리 로직
+  // ...
+}
+```
+
+### 2. 컴포넌트에서 사용
+```typescript
+// components/FileUpload.tsx
+import { getConfig } from '@/lib/config/factory';
+
+export const FileUpload = () => {
+  const config = getConfig();
+  const { maxFileSize, allowedTypes } = config.upload;
+  
+  const handleFileUpload = (file: File) => {
+    if (file.size > maxFileSize) {
+      throw new Error(`파일 크기 초과: ${file.size} > ${maxFileSize}`);
+    }
+    
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    if (!allowedTypes.includes(`.${extension}`)) {
+      throw new Error(`지원하지 않는 파일 형식: ${extension}`);
+    }
+  };
+  
+  // ...
+};
+```
+
+## 개발 가이드라인
+
+1. **환경 변수 우선**: 하드코딩 대신 환경 변수 사용
+2. **설정 중앙화**: MDC 파일을 통한 설정 관리
+3. **타입 안전성**: 설정에 대한 TypeScript 타입 정의
+4. **검증 필수**: 환경 변수 및 설정 검증
+5. **문서화**: 모든 설정에 대한 명확한 문서 제공

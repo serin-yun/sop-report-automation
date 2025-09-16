@@ -1,0 +1,223 @@
+---
+globs: *.ts,*.tsx,*.js,*.jsx,package.json
+description: S&OP 보고서 자동화 기술 스택 설정 가이드
+---
+
+# 기술 스택 설정 가이드
+
+## 핵심 기술 스택
+
+### 프론트엔드 프레임워크
+- **Next.js 14+** (App Router)
+- **React 18+** (Server Components 지원)
+- **TypeScript** (타입 안전성)
+
+### UI 라이브러리
+- **Tailwind CSS** (유틸리티 퍼스트 CSS)
+- **shadcn/ui** (재사용 가능한 컴포넌트)
+- **Radix UI** (접근성 기반 프리미티브)
+- **Lucide React** (아이콘)
+
+### 상태 관리
+- **Zustand** (경량 상태 관리)
+- **React Query** (서버 상태 관리)
+
+### 데이터 처리
+- **ExcelJS** (Excel 파일 처리)
+- **Papa Parse** (CSV 파싱)
+- **Zod** (스키마 검증)
+
+### AI/LLM 연동
+- **OpenAI API** (ChatGPT 연동)
+- **LangChain** (LLM 프레임워크)
+
+## 패키지 설치 명령어
+
+```bash
+# 핵심 프레임워크
+npm install next@latest react@latest react-dom@latest typescript@latest
+
+# UI 라이브러리
+npm install tailwindcss@latest postcss@latest autoprefixer@latest
+npm install @radix-ui/react-slot @radix-ui/react-dialog @radix-ui/react-dropdown-menu
+npm install lucide-react class-variance-authority clsx tailwind-merge
+
+# 상태 관리
+npm install zustand @tanstack/react-query
+
+# 데이터 처리
+npm install exceljs papaparse zod
+
+# AI 연동
+npm install openai langchain
+
+# 유틸리티
+npm install date-fns lodash-es
+```
+
+## Tailwind CSS 설정
+
+### tailwind.config.js
+```javascript
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  darkMode: ["class"],
+  content: [
+    './pages/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    './app/**/*.{ts,tsx}',
+    './src/**/*.{ts,tsx}',
+  ],
+  theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
+    extend: {
+      colors: {
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: 0 },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: 0 },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+      },
+    },
+  },
+  plugins: [require("tailwindcss-animate")],
+}
+```
+
+## shadcn/ui 설정
+
+### components.json
+```json
+{
+  "style": "default",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "config": "tailwind.config.js",
+    "css": "app/globals.css",
+    "baseColor": "slate",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils"
+  }
+}
+```
+
+## 환경 변수 설정
+
+### .env.local
+```env
+# OpenAI API
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4
+
+# 애플리케이션 설정
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXTAUTH_SECRET=your_nextauth_secret
+NEXTAUTH_URL=http://localhost:3000
+
+# 데이터베이스 (선택사항)
+DATABASE_URL=your_database_url
+
+# 파일 업로드 설정
+MAX_FILE_SIZE=10485760  # 10MB
+ALLOWED_FILE_TYPES=.csv,.xlsx,.xls
+```
+
+## TypeScript 설정
+
+### tsconfig.json
+```json
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": ["dom", "dom.iterable", "es6"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+```
+
+## 개발 가이드라인
+
+1. **컴포넌트 설계**: shadcn/ui 컴포넌트를 기반으로 재사용 가능한 컴포넌트 구성
+2. **스타일링**: Tailwind CSS 유틸리티 클래스 우선 사용
+3. **타입 안전성**: 모든 API 응답과 데이터에 대한 타입 정의 필수
+4. **성능 최적화**: React Query를 활용한 서버 상태 캐싱
+5. **접근성**: Radix UI 컴포넌트의 접근성 기능 활용
