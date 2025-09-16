@@ -234,3 +234,4 @@ export function base64ToExcel(base64: string): XLSX.WorkBook {
   }
   return XLSX.read(bytes, { type: 'array' });
 }
+

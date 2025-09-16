@@ -419,3 +419,4 @@ function generateTimelineCells(task: Task, timeline: TimelineItem[]): string[] {
     return '';
   });
 }
+
